@@ -15,23 +15,22 @@ VPN_EXTRA_ARGS=
 # shellcheck disable=SC1090
 [ -r "$conf" ] && . "$conf"
 
-# ask VARIABLE PROMPT: shows the current value; Enter keeps it.
+# ask PROMPT CURRENT: prints the answer, or CURRENT if Enter is pressed.
 ask() {
-    eval "current=\${$1}"
-    printf '%s [%s]: ' "$2" "$current"
+    printf '%s [%s]: ' "$1" "$2" >&2
     IFS= read -r answer
-    [ -z "$answer" ] || eval "$1=\$answer"
+    printf '%s\n' "${answer:-$2}"
 }
 
-ask VPN_SERVER 'VPN server'
-ask VPN_USER 'VPN user'
-ask VPN_PROTOCOL 'Protocol'
-ask VPN_EXTRA_ARGS 'Extra openconnect options (e.g. --authgroup=...)'
+VPN_SERVER=$(ask 'VPN server' "$VPN_SERVER")
+VPN_USER=$(ask 'VPN user' "$VPN_USER")
+VPN_PROTOCOL=$(ask 'Protocol' "$VPN_PROTOCOL")
+VPN_EXTRA_ARGS=$(ask 'Extra openconnect options (e.g. --authgroup=...)' "$VPN_EXTRA_ARGS")
 
 for value in "$VPN_SERVER" "$VPN_USER" "$VPN_PROTOCOL" "$VPN_EXTRA_ARGS"; do
     case $value in
     *[\"\$\`\\]*)
-        echo 'Values must not contain ", $, ` or \' >&2
+        echo 'Values must not contain double quotes, dollar signs, backticks or backslashes.' >&2
         exit 1
         ;;
     esac

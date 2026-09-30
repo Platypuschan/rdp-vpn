@@ -19,7 +19,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check shell scripts
         run: shellcheck install.sh container/wait-for-vpn container/rdp-vpn-setup
