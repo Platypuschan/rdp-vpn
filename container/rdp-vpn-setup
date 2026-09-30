@@ -1,0 +1,73 @@
+#!/bin/sh
+# Sets server, user and password for the VPN of this container and
+# (re)starts it. Run inside the container: rdp-vpn-setup
+set -eu
+
+[ "$(id -u)" -eq 0 ] || exec sudo "$0" "$@"
+
+conf=/etc/rdp-vpn/vpn.env
+password_file=/etc/rdp-vpn/password
+
+VPN_SERVER=
+VPN_USER=
+VPN_PROTOCOL=anyconnect
+VPN_EXTRA_ARGS=
+# shellcheck disable=SC1090
+[ -r "$conf" ] && . "$conf"
+
+# ask PROMPT CURRENT: prints the answer, or CURRENT if Enter is pressed.
+ask() {
+    printf '%s [%s]: ' "$1" "$2" >&2
+    IFS= read -r answer
+    printf '%s\n' "${answer:-$2}"
+}
+
+VPN_SERVER=$(ask 'VPN server' "$VPN_SERVER")
+VPN_USER=$(ask 'VPN user' "$VPN_USER")
+VPN_PROTOCOL=$(ask 'Protocol' "$VPN_PROTOCOL")
+VPN_EXTRA_ARGS=$(ask 'Extra openconnect options (e.g. --authgroup=...)' "$VPN_EXTRA_ARGS")
+
+for value in "$VPN_SERVER" "$VPN_USER" "$VPN_PROTOCOL" "$VPN_EXTRA_ARGS"; do
+    case $value in
+    *[\"\$\`\\]*)
+        echo 'Values must not contain double quotes, dollar signs, backticks or backslashes.' >&2
+        exit 1
+        ;;
+    esac
+done
+if [ -z "$VPN_SERVER" ] || [ -z "$VPN_USER" ]; then
+    echo 'Server and user are required.' >&2
+    exit 1
+fi
+
+umask 077
+install -d -m 700 /etc/rdp-vpn
+cat > "$conf" <<EOF
+# Written by rdp-vpn-setup; used by rdp-vpn.service.
+VPN_SERVER="$VPN_SERVER"
+VPN_USER="$VPN_USER"
+VPN_PROTOCOL="$VPN_PROTOCOL"
+VPN_EXTRA_ARGS="$VPN_EXTRA_ARGS"
+EOF
+
+change_password=yes
+if [ -s "$password_file" ]; then
+    printf 'Change the stored password? [y/N]: '
+    IFS= read -r answer
+    case $answer in
+    [yY]*) ;;
+    *) change_password=no ;;
+    esac
+fi
+if [ "$change_password" = yes ]; then
+    printf 'VPN password: '
+    stty -echo
+    IFS= read -r password
+    stty echo
+    echo
+    printf '%s\n' "$password" > "$password_file"
+fi
+
+systemctl reset-failed rdp-vpn.service 2>/dev/null || true
+systemctl restart rdp-vpn.service
+echo 'VPN restarted. Follow the log with: sudo journalctl -u rdp-vpn -f'

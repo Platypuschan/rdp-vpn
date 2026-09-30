@@ -1,0 +1,29 @@
+# Image for the rdp-vpn distrobox container: FreeRDP plus an AnyConnect VPN
+# (openconnect) that starts with the container. Contains no credentials;
+# those are set once per container with "rdp-vpn-setup".
+# CI publishes it as ghcr.io/platypuschan/rdp-vpn (see README.md).
+
+FROM registry.fedoraproject.org/fedora-toolbox:44
+
+LABEL org.opencontainers.image.source="https://github.com/Platypuschan/rdp-vpn" \
+      org.opencontainers.image.description="FreeRDP with an openconnect VPN for a distrobox container"
+
+RUN dnf -y install systemd freerdp openconnect vpnc-script iproute procps-ng \
+ && dnf clean all
+
+COPY rdp-vpn.service /etc/systemd/system/rdp-vpn.service
+COPY vpn.env.example /usr/share/rdp-vpn/vpn.env.example
+COPY --chmod=755 wait-for-vpn /usr/local/libexec/wait-for-vpn
+COPY --chmod=755 rdp-vpn-setup /usr/local/bin/rdp-vpn-setup
+
+# FreeRDP clients go through the wrapper, which waits for the VPN and shuts
+# the container down after a session. /usr/local/bin comes first in PATH.
+RUN install -d -m 700 /etc/rdp-vpn \
+ && linked=0 \
+ && for client in sdl-freerdp sdl-freerdp3 xfreerdp xfreerdp3 wlfreerdp wlfreerdp3; do \
+        if [ -x "/usr/bin/$client" ]; then \
+            ln -s /usr/local/libexec/wait-for-vpn "/usr/local/bin/$client"; linked=1; \
+        fi; \
+    done \
+ && [ "$linked" -eq 1 ] \
+ && systemctl enable rdp-vpn.service

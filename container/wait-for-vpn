@@ -1,0 +1,52 @@
+#!/bin/sh
+# Linked as /usr/local/bin/<freerdp client>, which comes before /usr/bin in
+# PATH. Starting the container also starts the VPN, so wait until the tunnel
+# has an address, then run the real client. When a session started by the
+# GNOME extension ends, the container shuts down (and the VPN with it).
+
+# Set to "no" to keep the container running after a session.
+SHUTDOWN_AFTER_SESSION=yes
+
+limit=${RDP_VPN_WAIT:-90}
+client="/usr/bin/$(basename "$0")"
+
+# The extension always passes its arguments as the single "/args-from:stdin";
+# manual runs (e.g. "xfreerdp /version") never shut the container down.
+from_extension=no
+[ "$#" -eq 1 ] && [ "$1" = "/args-from:stdin" ] && from_extension=yes
+
+shutdown_container() {
+    [ "$SHUTDOWN_AFTER_SESSION" = yes ] && [ "$from_extension" = yes ] || return 0
+    # Another session still running in this container keeps it alive. This
+    # script runs under the client's name too, so skip its own PID.
+    for name in sdl-freerdp sdl-freerdp3 xfreerdp xfreerdp3 wlfreerdp wlfreerdp3; do
+        pgrep -x "$name" | grep -qvx "$$" && return 0
+    done
+    # --no-block: return at once, so this script can exit before systemd
+    # (PID 1) stops and takes the container down.
+    sudo -n systemctl poweroff --no-block
+}
+
+waited=0
+while ! ip -o addr show dev vpn0 2>/dev/null | grep -q ' inet'; do
+    if [ "$waited" -ge "$limit" ]; then
+        echo "The VPN is not connected after ${limit}s." >&2
+        echo "Check inside the container: systemctl status rdp-vpn" >&2
+        shutdown_container
+        exit 1
+    fi
+    [ "$waited" -eq 0 ] && echo "Waiting for the VPN..." >&2
+    sleep 1
+    waited=$((waited + 1))
+done
+# Routes and DNS are set right after the address.
+[ "$waited" -gt 0 ] && sleep 2
+
+if [ "$from_extension" = no ] || [ "$SHUTDOWN_AFTER_SESSION" != yes ]; then
+    exec "$client" "$@"
+fi
+
+"$client" "$@"
+status=$?
+shutdown_container
+exit "$status"

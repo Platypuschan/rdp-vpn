@@ -1,0 +1,59 @@
+name: Container image
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # Weekly rebuild, so Fedora and FreeRDP updates reach the image.
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  image:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check shell scripts
+        run: shellcheck install.sh container/wait-for-vpn container/rdp-vpn-setup
+
+      - name: Set image name
+        # Registry names must be lower case.
+        run: |
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
+          echo "DATE_TAG=$(date -u +%Y%m%d)" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: >
+          podman build --pull=always
+          --tag "$IMAGE:latest" --tag "$IMAGE:$DATE_TAG"
+          container
+
+      - name: Check image contents
+        run: |
+          podman run --rm --network=none "$IMAGE:latest" sh -euc '
+            for client in sdl-freerdp xfreerdp; do
+              test "$(command -v "$client")" = "/usr/local/bin/$client"
+            done
+            /usr/bin/xfreerdp /version
+            /usr/sbin/openconnect --version | head -n 1
+            test "$(systemctl is-enabled rdp-vpn.service)" = enabled
+            test -x /usr/local/bin/rdp-vpn-setup
+            test -z "$(ls -A /etc/rdp-vpn)"
+          '
+
+      - name: Publish
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$TOKEN" | podman login ghcr.io --username "${{ github.actor }}" --password-stdin
+          podman push "$IMAGE:latest"
+          podman push "$IMAGE:$DATE_TAG"

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="org.gnome.shell.extensions.rdp-workspace" path="/org/gnome/shell/extensions/rdp-workspace/">
+    <key name="host" type="s">
+      <default>''</default>
+      <summary>RDP server host name or address</summary>
+    </key>
+    <key name="port" type="i">
+      <range min="1" max="65535"/>
+      <default>3389</default>
+      <summary>RDP server port</summary>
+    </key>
+    <key name="username" type="s">
+      <default>''</default>
+      <summary>User name (empty: let the client ask)</summary>
+    </key>
+    <key name="domain" type="s">
+      <default>''</default>
+      <summary>Windows domain (optional)</summary>
+    </key>
+    <key name="client-command" type="s">
+      <default>''</default>
+      <summary>FreeRDP client command (empty: detect automatically)</summary>
+    </key>
+    <key name="distrobox-container" type="s">
+      <default>''</default>
+      <summary>Distrobox container to run the client in (empty: run on the host)</summary>
+    </key>
+    <key name="extra-args" type="s">
+      <default>''</default>
+      <summary>Additional FreeRDP arguments, shell-quoted</summary>
+    </key>
+    <key name="cert-policy" type="s">
+      <choices>
+        <choice value="tofu"/>
+        <choice value="ask"/>
+        <choice value="ignore"/>
+      </choices>
+      <default>'tofu'</default>
+      <summary>How to handle unknown server certificates</summary>
+    </key>
+    <key name="audio" type="b">
+      <default>true</default>
+      <summary>Play remote audio locally</summary>
+    </key>
+    <key name="clipboard" type="b">
+      <default>true</default>
+      <summary>Share the clipboard</summary>
+    </key>
+    <key name="grab-keyboard" type="b">
+      <default>false</default>
+      <summary>Forward all keys, including GNOME shortcuts, to the remote session</summary>
+    </key>
+    <key name="switch-on-connect" type="b">
+      <default>true</default>
+      <summary>Switch to the RDP workspace once the session window appears</summary>
+    </key>
+    <key name="auto-connect" type="b">
+      <default>false</default>
+      <summary>Connect when the extension is enabled (at login)</summary>
+    </key>
+    <key name="toggle-shortcut" type="as">
+      <default><![CDATA[['<Super><Alt>r']]]></default>
+      <summary>Connect, or toggle between the RDP workspace and the previous one</summary>
+    </key>
+  </schema>
+</schemalist>
