@@ -1,0 +1,20 @@
+[Unit]
+Description=AnyConnect VPN for the RDP session (openconnect)
+After=network.target
+# Not configured yet (rdp-vpn-setup): skip instead of failing.
+ConditionPathExists=/etc/rdp-vpn/vpn.env
+ConditionPathExists=/etc/rdp-vpn/password
+# A wrong password must not end in an endless login loop (account lockout).
+StartLimitIntervalSec=10min
+StartLimitBurst=5
+
+[Service]
+EnvironmentFile=/etc/rdp-vpn/vpn.env
+StandardInput=file:/etc/rdp-vpn/password
+ExecStart=/usr/sbin/openconnect --protocol=${VPN_PROTOCOL} --user=${VPN_USER} --interface=vpn0 --non-inter --passwd-on-stdin $VPN_EXTRA_ARGS ${VPN_SERVER}
+# openconnect reconnects by itself after short outages; if it gives up, start over.
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

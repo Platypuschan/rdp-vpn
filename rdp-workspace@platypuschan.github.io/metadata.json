@@ -1,0 +1,9 @@
+{
+  "uuid": "rdp-workspace@platypuschan.github.io",
+  "name": "RDP Workspace",
+  "description": "Runs a FreeRDP session fullscreen on its own workspace, so a remote desktop behaves like one more GNOME workspace.",
+  "shell-version": ["46", "47", "48", "49", "50"],
+  "settings-schema": "org.gnome.shell.extensions.rdp-workspace",
+  "session-modes": ["user", "unlock-dialog"],
+  "version": 1
+}
